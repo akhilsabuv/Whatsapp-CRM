@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+coverage
+.env
+apps/backend/generated
+apps/backend/prisma/migrations
+apps/backend/sessions/*
+!apps/backend/sessions/.gitkeep

@@ -1,0 +1,416 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum LeadStatus {
+  LEAD
+  CUSTOMER
+}
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectMemberRole {
+  ADMIN
+  PROJECT_OWNER
+  MEMBER
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id                   Int                 @id @default(autoincrement())
+  name                 String              @default("")
+  email                String              @unique
+  phone                String?
+  profileImageUrl      String?
+  passwordHash         String
+  role                 UserRole            @default(USER)
+  whatsappConnected    Boolean             @default(false)
+  needsReauth          Boolean             @default(false)
+  timeZone             String              @default("Asia/Kolkata")
+  currency             String              @default("INR")
+  language             String              @default("en")
+  briefingTime         String              @default("09:00")
+  firstReminderMinutes Int                 @default(30)
+  secondReminderMinutes Int                @default(15)
+  lastBriefSentAt      DateTime?
+  smtpHost             String?
+  smtpPort             Int?
+  smtpSecure           Boolean             @default(false)
+  smtpUsername         String?
+  smtpPassword         String?
+  smtpFromEmail        String?
+  smtpFromName         String?
+  kanbanStagesJson     String              @default("[{\"id\":\"NEW\",\"title\":\"New\"},{\"id\":\"COLD\",\"title\":\"Cold\"},{\"id\":\"WARM\",\"title\":\"Warm\"},{\"id\":\"HOT\",\"title\":\"Hot\"},{\"id\":\"DEAD\",\"title\":\"Dead\"},{\"id\":\"CUSTOMER\",\"title\":\"Customer\"}]")
+  actionFollowUpOptionsJson String         @default("[{\"id\":\"COMPLETED\",\"title\":\"Completed\"},{\"id\":\"INCOMPLETE\",\"title\":\"Incomplete\"},{\"id\":\"CLIENT_BUSY\",\"title\":\"Client Was Busy\"},{\"id\":\"NO_RESPONSE\",\"title\":\"Client Didn't Respond\"},{\"id\":\"CALL_BACK_ANOTHER_DAY\",\"title\":\"Ask to Call Back Another Day\"},{\"id\":\"EMAIL_SENT\",\"title\":\"Send an Email\"}]")
+  leads                Lead[]
+  actions              Action[]            @relation("ActionAssignee")
+  sentTransfers        Transfer[]          @relation("TransferFromUser")
+  receivedTransfers    Transfer[]          @relation("TransferToUser")
+  whatsappMessages     WhatsAppMessage[]
+  sentTeamMessages     TeamChatMessage[]   @relation("TeamMessageSender")
+  receivedTeamMessages TeamChatMessage[]   @relation("TeamMessageRecipient")
+  cronJobLogs          CronJobLog[]
+  ownedProjects        Project[]           @relation("ProjectOwner")
+  projectMemberships   ProjectMember[]
+  assignedTasks        Task[]              @relation("TaskAssignee")
+  reportedTasks        Task[]              @relation("TaskReporter")
+  taskComments         TaskComment[]
+  taskActivities       TaskActivity[]      @relation("TaskActivityActor")
+  departmentAssignments UserDepartmentPosition[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+}
+
+model Department {
+  id              Int                      @id @default(autoincrement())
+  name            String                   @unique
+  positions       Position[]
+  userAssignments UserDepartmentPosition[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+}
+
+model Position {
+  id              Int                      @id @default(autoincrement())
+  title           String
+  departmentId    Int
+  department      Department               @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userAssignments UserDepartmentPosition[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([departmentId, title])
+  @@index([departmentId])
+}
+
+model UserDepartmentPosition {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  departmentId Int
+  positionId   Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, departmentId, positionId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([positionId])
+}
+
+model Lead {
+  id                         Int               @id @default(autoincrement())
+  name                       String
+  phone                      String            @unique
+  email                      String?
+  status                     LeadStatus        @default(LEAD)
+  pipelineStage              String            @default("NEW")
+  sourceCreatedTime          DateTime?
+  externalLeadId             String?
+  adId                       String?
+  adName                     String?
+  adsetId                    String?
+  adsetName                  String?
+  campaignId                 String?
+  campaignName               String?
+  formId                     String?
+  formName                   String?
+  fullName                   String?
+  city                       String?
+  budget                     String?
+  preferredLocation          String?
+  customDisclaimerResponses  String?
+  isOrganic                  Boolean?
+  platform                   String?
+  assignedToId               Int
+  assignedTo                 User              @relation(fields: [assignedToId], references: [id], onDelete: Restrict)
+  actions                    Action[]
+  leadProjects               Project[]          @relation("ProjectLead")
+  customerProjects           Project[]          @relation("ProjectCustomer")
+  leadTasks                  Task[]             @relation("TaskLead")
+  customerTasks              Task[]             @relation("TaskCustomer")
+  transfers                  Transfer[]
+  messages                   WhatsAppMessage[]
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  @@index([assignedToId])
+  @@index([pipelineStage])
+  @@index([externalLeadId])
+}
+
+model Project {
+  id            Int                @id @default(autoincrement())
+  title         String
+  key           String?
+  description   String?
+  notes         String?
+  status        ProjectStatus      @default(PLANNING)
+  ownerId       Int
+  leadId        Int?
+  customerId    Int?
+  startDate     DateTime?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  owner         User               @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  lead          Lead?              @relation("ProjectLead", fields: [leadId], references: [id], onDelete: SetNull)
+  customer      Lead?              @relation("ProjectCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  members       ProjectMember[]
+  tasks         Task[]
+  labels        TaskLabel[]
+  activities    TaskActivity[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([ownerId])
+  @@index([leadId])
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model ProjectMember {
+  id         Int               @id @default(autoincrement())
+  projectId  Int
+  userId     Int
+  role       ProjectMemberRole @default(MEMBER)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId, role])
+  @@index([userId])
+}
+
+model Task {
+  id           Int           @id @default(autoincrement())
+  projectId    Int
+  parentTaskId Int?
+  leadId       Int?
+  customerId   Int?
+  title        String
+  description  String?
+  status       TaskStatus    @default(TODO)
+  priority     TaskPriority  @default(MEDIUM)
+  assigneeId   Int?
+  reporterId   Int
+  dueDate      DateTime?
+  dueSoonNotifiedAt DateTime?
+  overdueNotifiedAt DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  sortOrder    Int           @default(0)
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask   Task?         @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     Task[]        @relation("TaskSubtasks")
+  lead         Lead?         @relation("TaskLead", fields: [leadId], references: [id], onDelete: SetNull)
+  customer     Lead?         @relation("TaskCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  assignee     User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporter     User          @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  comments     TaskComment[]
+  activities   TaskActivity[]
+  labels       TaskLabelMap[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([projectId, status, sortOrder])
+  @@index([projectId, assigneeId])
+  @@index([parentTaskId])
+  @@index([leadId])
+  @@index([customerId])
+  @@index([dueDate])
+}
+
+model TaskComment {
+  id         Int      @id @default(autoincrement())
+  taskId      Int
+  authorId    Int
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@index([authorId])
+}
+
+model TaskActivity {
+  id           Int      @id @default(autoincrement())
+  projectId     Int
+  taskId        Int?
+  actorUserId   Int?
+  action        String
+  field         String?
+  fromValue     String?
+  toValue       String?
+  message       String
+  metadataJson  String?
+  createdAt     DateTime @default(now())
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task          Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor         User?     @relation("TaskActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([taskId, createdAt])
+  @@index([actorUserId])
+}
+
+model TaskLabel {
+  id         Int      @id @default(autoincrement())
+  projectId   Int
+  name        String
+  color       String?
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       TaskLabelMap[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model TaskLabelMap {
+  id        Int       @id @default(autoincrement())
+  taskId     Int
+  labelId    Int
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label      TaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@unique([taskId, labelId])
+  @@index([taskId])
+  @@index([labelId])
+}
+
+model Action {
+  id             Int       @id @default(autoincrement())
+  leadId         Int
+  assignedToId   Int
+  title          String
+  notes          String?
+  scheduledAt    DateTime
+  isDone         Boolean   @default(false)
+  outcomeStatus   String    @default("PENDING")
+  completedAt    DateTime?
+  nextActionTitle String?
+  nextActionNotes String?
+  nextActionScheduledAt DateTime?
+  remind30Sent   Boolean   @default(false)
+  remind15Sent   Boolean   @default(false)
+  summarySentAt  DateTime?
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedTo     User      @relation("ActionAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([leadId])
+  @@index([assignedToId])
+  @@index([scheduledAt])
+  @@index([isDone, scheduledAt])
+  @@index([outcomeStatus, scheduledAt])
+}
+
+model Transfer {
+  id         Int            @id @default(autoincrement())
+  leadId     Int
+  fromUserId Int
+  toUserId   Int
+  status     TransferStatus @default(PENDING)
+  lead       Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromUser   User           @relation("TransferFromUser", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser     User           @relation("TransferToUser", fields: [toUserId], references: [id], onDelete: Restrict)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([leadId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+}
+
+model WhatsAppMessage {
+  id        Int      @id @default(autoincrement())
+  leadId     Int?
+  userId     Int
+  content   String
+  direction String   @default("OUTBOUND")
+  sentAt    DateTime @default(now())
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([sentAt])
+}
+
+model TeamChatMessage {
+  id              Int      @id @default(autoincrement())
+  senderUserId    Int
+  recipientUserId Int
+  content         String
+  createdAt       DateTime @default(now())
+  sender          User     @relation("TeamMessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  recipient       User     @relation("TeamMessageRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([senderUserId])
+  @@index([recipientUserId])
+  @@index([createdAt])
+}
+
+model CronJobLog {
+  id           Int      @id @default(autoincrement())
+  jobType      String
+  action       String
+  status       String
+  details      String?
+  scheduledFor DateTime?
+  executedAt   DateTime @default(now())
+  userId       Int?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([jobType])
+  @@index([status])
+  @@index([executedAt])
+  @@index([userId])
+}
