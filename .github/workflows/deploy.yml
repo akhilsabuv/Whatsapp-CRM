@@ -55,5 +55,19 @@ jobs:
 
           docker compose up -d --build --remove-orphans
           docker compose ps
-          docker compose exec -T backend wget -qO- http://127.0.0.1:4000/health
+
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T backend wget -qO- http://127.0.0.1:4000/health; then
+              echo
+              echo "Backend health check passed."
+              exit 0
+            fi
+
+            echo "Waiting for backend health check... attempt ${attempt}/30"
+            sleep 2
+          done
+
+          echo "Backend did not become healthy in time."
+          docker compose logs --tail=120 backend
+          exit 1
           REMOTE
