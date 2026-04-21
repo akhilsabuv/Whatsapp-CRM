@@ -210,6 +210,12 @@ Optional for running outside Docker:
 - Node.js 20+
 - npm 10+
 
+## Production Deployment
+
+The server deploy is managed by GitHub Actions. Pushes to `main` run `.github/workflows/deploy.yml`, which SSHes into the Ubuntu server, pulls the latest Git commit in `/opt/whatsapp-crm`, and restarts the Docker Compose stack.
+
+See [GitHub Actions deployment](docs/github-actions-deploy.md) for the required repository secrets and variables.
+
 ## Environment
 
 An example env file exists at [.env.example](/Users/asv/Desktop/Projects/Codex%20test/crm/.env.example).
@@ -413,4 +419,3 @@ docker compose logs -f backend
 - inbound WhatsApp sync into CRM conversations
 - richer audit logs and delivery receipts
 - file upload streaming for very large lead imports
-
