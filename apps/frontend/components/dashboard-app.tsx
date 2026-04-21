@@ -456,8 +456,7 @@ const TASK_PRIORITY_OPTIONS: Array<{ label: string; value: TaskPriority }> = [
   { label: "Urgent", value: "URGENT" },
 ];
 
-const browserBackendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+const browserBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
 const TIME_ZONE_OPTIONS = [
   { label: "India Standard Time (Asia/Kolkata)", value: "Asia/Kolkata" },
@@ -1373,7 +1372,7 @@ export function DashboardApp() {
   const [bulkTransferToUserId, setBulkTransferToUserId] = useState("");
   const [submittingBulkTransfer, setSubmittingBulkTransfer] = useState(false);
   const [importingLeads, setImportingLeads] = useState(false);
-  const [loginForm, setLoginForm] = useState({ email: "admin@crm.local", password: "admin123" });
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [leadForm, setLeadForm] = useState<LeadFormState>(createEmptyLeadForm());
   const [teamForm, setTeamForm] = useState({
     name: "",
@@ -3763,7 +3762,7 @@ export function DashboardApp() {
             </div>
             <h2 className="mt-4 text-3xl font-semibold">Sign in</h2>
             <p className="mt-3 text-sm leading-6 text-stone-300">
-              Demo credentials are seeded automatically on the backend.
+              Use your CRM account to access the command center.
             </p>
             <form className="mt-8 space-y-4" onSubmit={handleLogin}>
               <label className="block">
@@ -3796,10 +3795,6 @@ export function DashboardApp() {
               </button>
             </form>
             {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
-            <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 font-mono text-xs text-stone-300">
-              <p>`admin@crm.local / admin123`</p>
-              <p className="mt-2">`rep@crm.local / rep123`</p>
-            </div>
           </section>
         </div>
       </main>

@@ -1,0 +1,15 @@
+crm.aiesys.in {
+	encode gzip
+
+	reverse_proxy /api/* backend:4000
+	reverse_proxy /socket.io/* backend:4000
+	reverse_proxy frontend:3000
+}
+
+:80 {
+	encode gzip
+
+	reverse_proxy /api/* backend:4000
+	reverse_proxy /socket.io/* backend:4000
+	reverse_proxy frontend:3000
+}

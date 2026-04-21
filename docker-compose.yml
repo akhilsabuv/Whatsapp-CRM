@@ -7,8 +7,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-crm}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +19,6 @@ services:
     image: redis:7-alpine
     container_name: whatsapp-crm-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -43,21 +39,23 @@ services:
       redis:
         condition: service_healthy
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 4000
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/crm?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       REDIS_CACHE_TTL_SECONDS: ${REDIS_CACHE_TTL_SECONDS:-60}
-      TZ: UTC
-    ports:
-      - "${BACKEND_PORT:-4000}:4000"
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@crm.local}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+      DEFAULT_USER_EMAIL: ${DEFAULT_USER_EMAIL:-rep@crm.local}
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-rep123}
+      SESSIONS_DIR: /app-sessions
+      TZ: Asia/Kolkata
+    expose:
+      - "4000"
     volumes:
-      - ./apps/backend/src:/app/src
-      - ./apps/backend/prisma:/app/prisma
-      - ./apps/backend/sessions:/app/sessions
-      - ./apps/backend/package.json:/app/package.json
-    working_dir: /app
-    command: sh -c "npm install && npx prisma generate && npm run dev"
+      - backend_sessions:/app-sessions
 
   frontend:
     build:
@@ -68,20 +66,32 @@ services:
     depends_on:
       - backend
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 3000
       BACKEND_INTERNAL_URL: http://backend:4000
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:4000
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-WhatsApp CRM}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: whatsapp-crm-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
     ports:
-      - "${FRONTEND_PORT:-3002}:3000"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./apps/frontend:/app
-      - /app/node_modules
-      - /app/.next
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   postgres_data:
   redis_data:
+  backend_sessions:
+  caddy_data:
+  caddy_config:

@@ -1,16 +1,20 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /repo
 
-COPY apps/frontend/package.json ./package.json
-COPY apps/frontend/tsconfig.json ./tsconfig.json
-COPY apps/frontend/next.config.ts ./next.config.ts
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
 
-RUN apk add --no-cache git
-# RUN npm install
+RUN apk add --no-cache git \
+  && npm ci
 
-COPY apps/frontend ./
+COPY apps/frontend apps/frontend
+
+RUN npm --workspace apps/frontend run build
+
+WORKDIR /repo/apps/frontend
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]

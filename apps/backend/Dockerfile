@@ -1,17 +1,21 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /repo
 
-COPY apps/backend/package.json ./package.json
-COPY apps/backend/tsconfig.json ./tsconfig.json
-COPY apps/backend/prisma ./prisma
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
 
-RUN apk add --no-cache git
-# RUN npm install
+RUN apk add --no-cache git openssl \
+  && npm ci
 
-COPY apps/backend/src ./src
-COPY apps/backend/sessions ./sessions
+COPY apps/backend apps/backend
+
+RUN npm --workspace apps/backend run prisma:generate \
+  && npm --workspace apps/backend run build
+
+WORKDIR /repo/apps/backend
 
 EXPOSE 4000
 
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
